@@ -80,6 +80,30 @@ extension FlickrPhotosViewController {
 
     return cell
   }
+  
+  // ヘッダのViewを返す
+  // Headerを有効にしたことで、UICollectionViewFlowLayoutより呼び出される
+  override func collectionView(_ collectionView: UICollectionView,
+                               viewForSupplementaryElementOfKind kind: String,
+                               at indexPath: IndexPath) -> UICollectionReusableView {
+    switch kind {
+    case UICollectionView.elementKindSectionHeader:
+      guard
+        let headerView = collectionView.dequeueReusableSupplementaryView(
+          ofKind: kind,
+          withReuseIdentifier: "\(FlickrPhotoHeaderView.self)",
+          for: indexPath) as? FlickrPhotoHeaderView
+        else {
+          fatalError("Invalid view type")
+      }
+      let searchTerm = searches[indexPath.section].searchTerm
+      headerView.label.text = searchTerm
+      return headerView
+      
+    default:
+      assert(false, "Invalid element type")
+    }
+  }
 }
 
 
