@@ -46,6 +46,34 @@ private extension FlickrPhotosViewController {
   func photo(for indexPath: IndexPath) -> FlickrPhoto {
     return searches[indexPath.section].searchResults[indexPath.row]
   }
+  
+  // 大きい画像をダウンロードするためのメソッド
+  func performLargeImageFetch(for indexPath: IndexPath, flickrPhoto: FlickrPhoto) {
+    // cellの型を確認
+    guard let cell = collectionView.cellForItem(at: indexPath) as? FlickrPhotoCell else {
+      return
+    }
+
+    // ネットワークの状態を可視化する
+    cell.activityIndicator.startAnimating()
+
+    flickrPhoto.loadLargeImage { [weak self] result in
+      // weakでselfをcaptureしているので開放されていないかを確認する
+      guard let self = self else {
+        return
+      }
+
+      switch result {
+      case .results(let photo):
+        if indexPath == self.largePhotoIndexPath {
+          cell.imageView.image = photo.largeImage
+        }
+      case .error(_):
+        return
+      }
+    }
+  }
+  
 }
 
 
@@ -94,15 +122,34 @@ extension FlickrPhotosViewController {
   }
   
   //3
-  override func collectionView(
-    _ collectionView: UICollectionView,
-    cellForItemAt indexPath: IndexPath
-  ) -> UICollectionViewCell {
-    let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath) as! FlickrPhotoCell
+  override func collectionView(_ collectionView: UICollectionView,
+                               cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+    
+    guard let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier,
+                                                        for: indexPath) as? FlickrPhotoCell else {
+                                                          preconditionFailure("Invalid cell type")
+    }
     
     let flickrPhoto = photo(for: indexPath)
-    cell.backgroundColor = .white
+    cell.activityIndicator.stopAnimating()  // すでに実行中の場合に備えて停止させる
+    
+    // 現在の対象のセルがlargeでない場合は小さい画像をセット
+    guard indexPath == largePhotoIndexPath else {
+      cell.imageView.image = flickrPhoto.thumbnail
+      return cell
+    }
+    
+    guard flickrPhoto.largeImage == nil else {
+      // largeImageがすでに読み込まれている場合？（一度tap済み？）
+      cell.imageView.image = flickrPhoto.largeImage
+      return cell
+    }
+    
+    // 以後Large画像を表示した。ますはthumbnail画像をセットしておく。
     cell.imageView.image = flickrPhoto.thumbnail
+    
+    // 5
+    performLargeImageFetch(for: indexPath, flickrPhoto: flickrPhoto)
 
     return cell
   }
@@ -177,7 +224,7 @@ extension FlickrPhotosViewController {
   override func collectionView(_ collectionView: UICollectionView,
                                shouldSelectItemAt indexPath: IndexPath) -> Bool {
     if largePhotoIndexPath == indexPath {
-      largePhotoIndexPath = nil  // すでに選択してい場合は、画像を元の大きさに数r
+      largePhotoIndexPath = nil  // すでに選択してい場合は、画像を元の大きさにする
     } else {
       largePhotoIndexPath = indexPath
     }
