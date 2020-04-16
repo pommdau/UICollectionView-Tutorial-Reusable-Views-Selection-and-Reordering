@@ -83,6 +83,7 @@ final class FlickrPhotosViewController: UICollectionViewController {
     // ドラッグを有効にするための設定
     collectionView.dragInteractionEnabled = true
     collectionView.dragDelegate = self
+    collectionView.dropDelegate = self
   }
   
   
@@ -136,6 +137,14 @@ private extension FlickrPhotosViewController {
     return searches[indexPath.section].searchResults[indexPath.row]
   }
   
+  func removePhoto(at indexPath: IndexPath) {
+    searches[indexPath.section].searchResults.remove(at: indexPath.row)
+  }
+    
+  func insertPhoto(_ flickrPhoto: FlickrPhoto, at indexPath: IndexPath) {
+    searches[indexPath.section].searchResults.insert(flickrPhoto, at: indexPath.row)
+  }
+  
   // 大きい画像をダウンロードするためのメソッド
   func performLargeImageFetch(for indexPath: IndexPath, flickrPhoto: FlickrPhoto) {
     // cellの型を確認
@@ -163,7 +172,6 @@ private extension FlickrPhotosViewController {
     }
   }
   
-  
   func updateSharedPhotoCountLabel() {
     if sharing {
       shareLabel.text = "\(selectedPhotos.count) photos selected"
@@ -177,8 +185,6 @@ private extension FlickrPhotosViewController {
       self.shareLabel.sizeToFit()
     }
   }
-
-  
 }
 
 
@@ -383,5 +389,50 @@ extension FlickrPhotosViewController: UICollectionViewDragDelegate {
     let item = NSItemProvider(object: thumbnail)
     let dragItem = UIDragItem(itemProvider: item)
     return [dragItem]
+  }
+}
+
+
+// MARK: - UICollectionViewDropDelegate
+extension FlickrPhotosViewController: UICollectionViewDropDelegate {
+  // 今回はdragするオブジェクトは一種類だけなので、特に判断せずに単純にtrueを返すだけでOK
+  func collectionView(_ collectionView: UICollectionView,
+                      canHandle session: UIDropSession) -> Bool {
+    return true
+  }
+  
+  // This delegate method accepts the drop items and performs maintenance on the collection view
+  // and the underlying data storage array to properly reorder the dropped items.
+  func collectionView(_ collectionView: UICollectionView,
+                      performDropWith coordinator: UICollectionViewDropCoordinator) {
+  // drop地点のindexを取得する
+    guard let destinationIndexPath = coordinator.destinationIndexPath else {
+      return
+    }
+    
+    coordinator.items.forEach { dropItem in
+      // それぞれのオブジェクトがsourceIndexPathを持つかどうかをチェック
+      guard let sourceIndexPath = dropItem.sourceIndexPath else {
+        return
+      }
+
+      collectionView.performBatchUpdates({
+        let image = photo(for: sourceIndexPath)
+        removePhoto(at: sourceIndexPath)
+        insertPhoto(image, at: destinationIndexPath)
+        collectionView.deleteItems(at: [sourceIndexPath])
+        collectionView.insertItems(at: [destinationIndexPath])
+      }, completion: { _ in
+        coordinator.drop(dropItem.dragItem,
+                          toItemAt: destinationIndexPath)
+      })
+    }
+  }
+  
+  func collectionView(_ collectionView: UICollectionView,
+                      dropSessionDidUpdate session: UIDropSession,
+                      withDestinationIndexPath destinationIndexPath: IndexPath?) -> UICollectionViewDropProposal {
+    return UICollectionViewDropProposal(operation: .move,
+                                        intent: .insertAtDestinationIndexPath)
   }
 }
