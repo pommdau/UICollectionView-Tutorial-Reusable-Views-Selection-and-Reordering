@@ -11,6 +11,32 @@ final class FlickrPhotosViewController: UICollectionViewController {
   private let flickr = Flickr()  // Flickr検索用
   private let itemsPerRow: CGFloat = 3
   
+  // 現在選択している写真の情報（大きく表示される）
+  var largePhotoIndexPath: IndexPath? {
+    didSet {
+      var indexPaths: [IndexPath] = []
+      if let largePhotoIndexPath = largePhotoIndexPath {
+        indexPaths.append(largePhotoIndexPath)  // new value
+      }
+
+      if let oldValue = oldValue {
+        indexPaths.append(oldValue)
+      }
+      
+      // collectionViewのアップデート
+      collectionView.performBatchUpdates({
+        self.collectionView.reloadItems(at: indexPaths)
+      }) { _ in
+        // 配置完了後に選択したセルまでスクロールさせ、画面の中央とする
+        if let largePhotoIndexPath = self.largePhotoIndexPath {
+          self.collectionView.scrollToItem(at: largePhotoIndexPath,
+                                           at: .centeredVertically,
+                                           animated: true)
+        }
+      }
+    }
+  }
+  
 }
 
 
@@ -114,6 +140,15 @@ extension FlickrPhotosViewController : UICollectionViewDelegateFlowLayout {
                       layout collectionViewLayout: UICollectionViewLayout,
                       sizeForItemAt indexPath: IndexPath) -> CGSize {
 
+    if indexPath == largePhotoIndexPath {
+      // アスペクト比を保って、CollectionViewに沿う大きさにする
+      let flickrPhoto = photo(for: indexPath)
+      var size        = collectionView.bounds.size
+      size.height -= (sectionInsets.top  + sectionInsets.bottom)
+      size.width  -= (sectionInsets.left + sectionInsets.right)
+      return flickrPhoto.sizeToFillWidth(of: size)
+    }
+    
     let paddingSpace   = sectionInsets.left * (itemsPerRow + 1)
     let availableWidth = view.frame.width - paddingSpace
     let widthPerItem   = availableWidth / itemsPerRow
@@ -133,5 +168,20 @@ extension FlickrPhotosViewController : UICollectionViewDelegateFlowLayout {
                       layout collectionViewLayout: UICollectionViewLayout,
                       minimumLineSpacingForSectionAt section: Int) -> CGFloat {
     return sectionInsets.left
+  }
+}
+
+// MARK: - UICollectionViewDelegate
+extension FlickrPhotosViewController {
+  // セルを選択したときに呼ばれるメソッド
+  override func collectionView(_ collectionView: UICollectionView,
+                               shouldSelectItemAt indexPath: IndexPath) -> Bool {
+    if largePhotoIndexPath == indexPath {
+      largePhotoIndexPath = nil  // すでに選択してい場合は、画像を元の大きさに数r
+    } else {
+      largePhotoIndexPath = indexPath
+    }
+
+    return false
   }
 }
