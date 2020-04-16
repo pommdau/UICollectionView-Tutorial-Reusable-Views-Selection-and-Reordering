@@ -78,6 +78,14 @@ final class FlickrPhotosViewController: UICollectionViewController {
     }
   }
   
+  override func viewDidLoad() {
+    super.viewDidLoad()
+    // ドラッグを有効にするための設定
+    collectionView.dragInteractionEnabled = true
+    collectionView.dragDelegate = self
+  }
+  
+  
   // MARK:- Actions
   @IBAction func share(_ sender: UIBarButtonItem) {
     guard !searches.isEmpty else {
@@ -359,4 +367,21 @@ extension FlickrPhotosViewController {
     }
   }
 
+}
+
+
+// MARK: - UICollectionViewDragDelegate
+extension FlickrPhotosViewController: UICollectionViewDragDelegate {
+  /// Provides the initial set of items (if any) to drag.
+  func collectionView(_ collectionView: UICollectionView,
+                      itemsForBeginning session: UIDragSession,
+                      at indexPath: IndexPath) -> [UIDragItem] {
+    let flickrPhoto = photo(for: indexPath)
+    guard let thumbnail = flickrPhoto.thumbnail else {
+      return []
+    }
+    let item = NSItemProvider(object: thumbnail)
+    let dragItem = UIDragItem(itemProvider: item)
+    return [dragItem]
+  }
 }
